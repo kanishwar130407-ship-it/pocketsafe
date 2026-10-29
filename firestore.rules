@@ -1,0 +1,150 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Global Safety Net - Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper Primitives
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isFamilyGuardian(familyId) {
+      return isSignedIn() &&
+        exists(/databases/$(database)/documents/families/$(familyId)) &&
+        get(/databases/$(database)/documents/families/$(familyId)).data.guardianId == request.auth.uid;
+    }
+
+    function isLinkedTeen(familyId, teenId) {
+      return isSignedIn() &&
+        exists(/databases/$(database)/documents/families/$(familyId)/teens/$(teenId)) &&
+        request.auth.uid == teenId;
+    }
+
+    // Families Collection
+    match /families/{familyId} {
+      allow get: if isSignedIn() && (
+        resource.data.guardianId == request.auth.uid ||
+        exists(/databases/$(database)/documents/families/$(familyId)/teens/$(request.auth.uid))
+      );
+
+      allow list: if isSignedIn() && resource.data.guardianId == request.auth.uid;
+
+      allow create: if isSignedIn() &&
+        isValidId(familyId) &&
+        incoming().guardianId == request.auth.uid &&
+        incoming().familyBalance >= 0 &&
+        incoming().familyName is string && incoming().familyName.size() <= 100;
+
+      allow update: if isSignedIn() &&
+        resource.data.guardianId == request.auth.uid &&
+        incoming().guardianId == existing().guardianId &&
+        incoming().familyBalance >= 0;
+    }
+
+    // Teens Subcollection
+    match /families/{familyId}/teens/{teenId} {
+      allow get: if isSignedIn() && (
+        isFamilyGuardian(familyId) || request.auth.uid == teenId
+      );
+
+      allow list: if isSignedIn() && isFamilyGuardian(familyId);
+
+      // Only guardian can add or edit teen profiles
+      allow create, update, delete: if isFamilyGuardian(familyId) && isValidId(teenId);
+    }
+
+    // Wallets Subcollection
+    match /families/{familyId}/wallets/{walletId} {
+      allow get: if isSignedIn() && (
+        isFamilyGuardian(familyId) || resource.data.teenId == request.auth.uid
+      );
+
+      allow list: if isSignedIn() && (
+        isFamilyGuardian(familyId) || resource.data.teenId == request.auth.uid
+      );
+
+      // Only guardian can create or delete a wallet
+      allow create, delete: if isFamilyGuardian(familyId) && isValidId(walletId);
+
+      // Teen CANNOT modify balance, pause state, or limits directly!
+      // Only guardian can modify limits, pause status, or allocate funds.
+      allow update: if isFamilyGuardian(familyId) &&
+        incoming().teenId == existing().teenId &&
+        incoming().guardianId == existing().guardianId &&
+        incoming().balance >= 0;
+    }
+
+    // Transactions Subcollection (Immutable Ledger)
+    match /families/{familyId}/transactions/{transactionId} {
+      allow get: if isSignedIn() && (
+        isFamilyGuardian(familyId) || resource.data.teenId == request.auth.uid
+      );
+
+      allow list: if isSignedIn() && (
+        isFamilyGuardian(familyId) || resource.data.teenId == request.auth.uid
+      );
+
+      // Creation happens only with valid authenticated participant (guardian allocation or teen spend)
+      allow create: if isSignedIn() &&
+        isValidId(transactionId) &&
+        incoming().amount > 0 &&
+        incoming().balanceAfter >= 0 &&
+        (isFamilyGuardian(familyId) || incoming().teenId == request.auth.uid);
+
+      // Transactions are immutable! No updates or deletes allowed once written.
+      // Reversals create a new offsetting transaction record.
+      allow update, delete: if false;
+    }
+
+    // Money Requests Subcollection
+    match /families/{familyId}/requests/{requestId} {
+      allow get: if isSignedIn() && (
+        isFamilyGuardian(familyId) || resource.data.teenId == request.auth.uid
+      );
+
+      allow list: if isSignedIn() && (
+        isFamilyGuardian(familyId) || resource.data.teenId == request.auth.uid
+      );
+
+      // Teen can create a pending request with positive amount
+      allow create: if isSignedIn() &&
+        isValidId(requestId) &&
+        incoming().teenId == request.auth.uid &&
+        incoming().status == 'pending' &&
+        incoming().amount > 0;
+
+      // Only guardian can approve or reject (change status from pending to approved/rejected)
+      // Teen CANNOT self-approve
+      allow update: if isFamilyGuardian(familyId) &&
+        existing().status == 'pending' &&
+        (incoming().status == 'approved' || incoming().status == 'rejected') &&
+        incoming().teenId == existing().teenId &&
+        incoming().amount == existing().amount;
+
+      allow delete: if isFamilyGuardian(familyId) || (existing().teenId == request.auth.uid && existing().status == 'pending');
+    }
+
+    // Audit Log
+    match /families/{familyId}/audit/{logId} {
+      allow read: if isFamilyGuardian(familyId);
+      allow create: if isSignedIn() && isValidId(logId);
+      allow update, delete: if false; // Append-only audit
+    }
+  }
+}

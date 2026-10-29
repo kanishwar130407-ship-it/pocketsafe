@@ -1,0 +1,160 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile for guardians and teens",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "familyId": { "type": "string", "maxLength": 128 },
+        "role": { "type": "string", "enum": ["guardian", "teen"] },
+        "fullName": { "type": "string", "maxLength": 100 },
+        "email": { "type": "string", "maxLength": 120 },
+        "phone": { "type": "string", "maxLength": 20 },
+        "teenProfileId": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "familyId", "role", "fullName", "createdAt", "updatedAt"]
+    },
+    "Family": {
+      "title": "Family",
+      "description": "Family account unit managed by guardians",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "guardianId": { "type": "string", "maxLength": 128 },
+        "familyName": { "type": "string", "maxLength": 100 },
+        "familyBalance": { "type": "number" },
+        "guardianVerified": { "type": "boolean" },
+        "verificationDetails": { "type": "object" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "guardianId", "familyName", "familyBalance", "createdAt", "updatedAt"]
+    },
+    "TeenProfile": {
+      "title": "TeenProfile",
+      "description": "Controlled teen profile registered by a guardian",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "familyId": { "type": "string", "maxLength": 128 },
+        "guardianId": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "maxLength": 100 },
+        "age": { "type": "number" },
+        "phone": { "type": "string", "maxLength": 20 },
+        "avatarUrl": { "type": "string", "maxLength": 256 },
+        "walletId": { "type": "string", "maxLength": 128 },
+        "username": { "type": "string", "maxLength": 60 },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "familyId", "guardianId", "name", "age", "walletId", "createdAt", "updatedAt"]
+    },
+    "Wallet": {
+      "title": "Wallet",
+      "description": "Dedicated teen allowance wallet with spending limits",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "teenId": { "type": "string", "maxLength": 128 },
+        "familyId": { "type": "string", "maxLength": 128 },
+        "guardianId": { "type": "string", "maxLength": 128 },
+        "balance": { "type": "number" },
+        "isPaused": { "type": "boolean" },
+        "allowanceAmount": { "type": "number" },
+        "allowanceFrequency": { "type": "string", "enum": ["weekly", "monthly", "custom"] },
+        "dailySpendingLimit": { "type": "number" },
+        "spentToday": { "type": "number" },
+        "categoryLimits": { "type": "object" },
+        "categorySpentMonth": { "type": "object" },
+        "lastAllowanceDate": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "teenId", "familyId", "guardianId", "balance", "isPaused", "dailySpendingLimit", "spentToday", "updatedAt"]
+    },
+    "Transaction": {
+      "title": "Transaction",
+      "description": "Immutable ledger record for every spend, allocation, request-approval, or reversal",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "familyId": { "type": "string", "maxLength": 128 },
+        "teenId": { "type": "string", "maxLength": 128 },
+        "type": { "type": "string", "enum": ["spend", "allowance_load", "request_payout", "reversal"] },
+        "category": { "type": "string", "enum": ["Food", "Travel", "Education", "Entertainment", "Shopping", "Other"] },
+        "payeeName": { "type": "string", "maxLength": 120 },
+        "payeeCode": { "type": "string", "maxLength": 80 },
+        "amount": { "type": "number" },
+        "balanceBefore": { "type": "number" },
+        "balanceAfter": { "type": "number" },
+        "status": { "type": "string", "enum": ["success", "failed", "reversed"] },
+        "note": { "type": "string", "maxLength": 200 },
+        "idempotencyKey": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "familyId", "teenId", "type", "category", "payeeName", "amount", "balanceBefore", "balanceAfter", "status", "createdAt"]
+    },
+    "MoneyRequest": {
+      "title": "MoneyRequest",
+      "description": "Teen allowance or extra-fund request needing guardian approval",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "familyId": { "type": "string", "maxLength": 128 },
+        "teenId": { "type": "string", "maxLength": 128 },
+        "teenName": { "type": "string", "maxLength": 100 },
+        "amount": { "type": "number" },
+        "category": { "type": "string", "enum": ["Food", "Travel", "Education", "Entertainment", "Shopping", "Other"] },
+        "reason": { "type": "string", "maxLength": 250 },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
+        "guardianNote": { "type": "string", "maxLength": 250 },
+        "createdAt": { "type": "string" },
+        "respondedAt": { "type": "string" }
+      },
+      "required": ["id", "familyId", "teenId", "teenName", "amount", "category", "reason", "status", "createdAt"]
+    },
+    "AuditLog": {
+      "title": "AuditLog",
+      "description": "System and security audit record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "familyId": { "type": "string", "maxLength": 128 },
+        "actorId": { "type": "string", "maxLength": 128 },
+        "actorRole": { "type": "string", "enum": ["guardian", "teen", "system"] },
+        "action": { "type": "string", "maxLength": 100 },
+        "details": { "type": "string", "maxLength": 500 },
+        "timestamp": { "type": "string" }
+      },
+      "required": ["id", "familyId", "actorId", "actorRole", "action", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/families/{familyId}": {
+      "schema": "Family",
+      "description": "Stores family account information and family pooled reserve balance"
+    },
+    "/families/{familyId}/teens/{teenId}": {
+      "schema": "TeenProfile",
+      "description": "Stores teen profile data linked to guardian"
+    },
+    "/families/{familyId}/wallets/{walletId}": {
+      "schema": "Wallet",
+      "description": "Stores teen allowance wallet, limits, and real-time balance"
+    },
+    "/families/{familyId}/transactions/{transactionId}": {
+      "schema": "Transaction",
+      "description": "Immutable ledger for spend, load, payout, and reversal"
+    },
+    "/families/{familyId}/requests/{requestId}": {
+      "schema": "MoneyRequest",
+      "description": "Money requests from teens awaiting guardian approval"
+    },
+    "/families/{familyId}/audit/{logId}": {
+      "schema": "AuditLog",
+      "description": "Security and compliance audit trail"
+    }
+  }
+}

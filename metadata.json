@@ -1,0 +1,6 @@
+{
+  "name": "PocketSafe",
+  "description": "A family allowance and controlled-spending app for teens under 18 in India with guardian limits, demo merchant payments, and AI spending insights.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
